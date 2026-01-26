@@ -18,7 +18,7 @@ const defaultConfig = {
   // 🔑 Identifiants
   SESSION_ID: "kaya~aQcg3Kxa#s60slGfrkJNXac-rfdaVUIJ0N-mhYWwI_5Uze3eSUUA",
   
-  OWNERS: ["OWNER_NUMBER"], 
+  OWNERS: ["243846064543"], 
 
   // ⚙️ Paramètres du bot
   PREFIX: "+",
@@ -32,9 +32,9 @@ const defaultConfig = {
 
   // 🌐 Liens utiles
   LINKS: {
-    group: "https://chat.whatsapp.com/DoMh6jWjly2ErwVppmCGZo",
-    channel: "https://whatsapp.com/channel/0029Vb6FFPM002T3SKA6bb2D",
-    telegram: "https://t.me/zonetech2",
+    group: "https://chat.whatsapp.com/IpOMwdgWmIH0GNksU4FUJn",
+    channel: "https://david-mpongo.vercel.app/",
+    telegram: "https://davbot-vpn.vercel.app/",
   },
 };
 
