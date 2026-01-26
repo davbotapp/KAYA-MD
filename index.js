@@ -206,18 +206,6 @@ sock.ev.on('messages.upsert', async ({ messages }) => {
 // ================== RUN ==================
 global.botStartTime = Date.now(); 
 startBot();
-
-// ================== RENDER HTTP SERVER (OBLIGATOIRE) ==================
-const app = express();
-
-app.get("/", (req, res) => {
-  res.status(200).send("✅ KAYA-MD est actif sur Render");
-});
-
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("🌍 Serveur HTTP Render ouvert sur le port", PORT);
-});
 // ================== GLOBAL ERRORS ==================
 process.on('unhandledRejection', err =>
   console.error('UnhandledRejection:', err)
