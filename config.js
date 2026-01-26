@@ -16,7 +16,7 @@ const configPath = path.join(dataDir, "config.json");
 // ================== CONFIGURATION PAR DÉFAUT ==================
 const defaultConfig = {
   // 🔑 Identifiants
-  SESSION_ID: "SESSION_ID",
+  SESSION_ID: "kaya~aQcg3Kxa#s60slGfrkJNXac-rfdaVUIJ0N-mhYWwI_5Uze3eSUUA",
   
   OWNERS: ["OWNER_NUMBER"], 
 
