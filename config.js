@@ -21,7 +21,7 @@ const defaultConfig = {
   OWNERS: ["OWNER_NUMBER"], 
 
   // ⚙️ Paramètres du bot
-  PREFIX: ".",
+  PREFIX: "+",
   TIMEZONE: "Africa/Kinshasa",
   VERSION: "2.0.0",
   public: true,
