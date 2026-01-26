@@ -1,21 +1,25 @@
 // ================== CORE ==================
-import fs from 'fs';
-import path from 'path';
-import chalk from 'chalk';
-import pino from 'pino';
-import crypto from 'crypto';
-import { fileURLToPath } from 'url';
+import fs from "fs";
+import path from "path";
+import chalk from "chalk";
+import pino from "pino";
+import crypto from "crypto";
+import express from "express";
+import { fileURLToPath } from "url";
+
+// ================== GLOBAL ==================
 global.menuSessions = {};
+
 // ================== CONFIG & GLOBALS ==================
-import config from './config.js';
-import './system/globals.js';
-import { loadBotModes } from './system/botStatus.js';
+import config from "./config.js";
+import "./system/globals.js";
+import { loadBotModes } from "./system/botStatus.js";
 loadBotModes();
 
 // ================== ASSETS & UTILS ==================
-import { connectionMessage, getBotImage } from './system/botAssets.js';
-import { checkUpdate } from './system/updateChecker.js';
-import { loadSessionFromMega } from './system/megaSession.js';
+import { connectionMessage, getBotImage } from "./system/botAssets.js";
+import { checkUpdate } from "./system/updateChecker.js";
+import { loadSessionFromMega } from "./system/megaSession.js";
 
 // ================== HANDLER ==================
 import handleCommand, {
@@ -23,7 +27,7 @@ import handleCommand, {
   loadCommands,
   commands,
   handleParticipantUpdate
-} from './handler.js';
+} from "./handler.js";
 
 // ================== BAILEYS ==================
 import makeWASocket, {
@@ -32,7 +36,7 @@ import makeWASocket, {
   fetchLatestBaileysVersion,
   jidDecode,
   useMultiFileAuthState
-} from '@whiskeysockets/baileys';
+} from "@whiskeysockets/baileys";
 
 // ================== PATH ==================
 const __filename = fileURLToPath(import.meta.url);
@@ -58,8 +62,8 @@ global.autoStatus ??= false;
 global.botStartTime = Date.now();
 
 // ================== SESSION ==================
-const sessionDir = path.join(__dirname, 'session');
-const credsPath = path.join(sessionDir, 'creds.json');
+const sessionDir = path.join(__dirname, "session");
+const credsPath = path.join(sessionDir, "creds.json");
 
 if (!fs.existsSync(sessionDir)) {
   fs.mkdirSync(sessionDir, { recursive: true });
@@ -68,7 +72,7 @@ if (!fs.existsSync(sessionDir)) {
 // ================== START BOT ==================
 async function startBot() {
   try {
-    // ===== Load session Mega (si existante)
+    // ---- Load session depuis MEGA si dispo
     await loadSessionFromMega(credsPath);
 
     const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
@@ -77,8 +81,8 @@ async function startBot() {
     const sock = makeWASocket({
       auth: state,
       version,
-      logger: pino({ level: 'silent' }),
-      browser: Browsers.macOS('Safari'),
+      logger: pino({ level: "silent" }),
+      browser: Browsers.macOS("Safari"),
       printQRInTerminal: false
     });
 
@@ -92,17 +96,17 @@ async function startBot() {
       return jid;
     };
 
-    // ================== LOAD COMMANDS (ONCE) ==================
+    // ================== LOAD COMMANDS ==================
     await loadCommands();
     console.log(chalk.cyan(`📂 Commandes chargées : ${Object.keys(commands).length}`));
 
     // ================== CONNECTION ==================
-    sock.ev.on('connection.update', async ({ connection, lastDisconnect }) => {
-      if (connection === 'open') {
-        console.log(chalk.green('✅ KAYA-MD CONNECTÉ'));
+    sock.ev.on("connection.update", async ({ connection, lastDisconnect }) => {
+      if (connection === "open") {
+        console.log(chalk.green("✅ KAYA-MD CONNECTÉ"));
 
         try {
-          const jid = sock.user.id.split(':')[0] + '@s.whatsapp.net';
+          const jid = sock.user.id.split(":")[0] + "@s.whatsapp.net";
           await sock.sendMessage(jid, {
             image: { url: getBotImage() },
             caption: connectionMessage()
@@ -112,105 +116,112 @@ async function startBot() {
         await checkUpdate(sock);
       }
 
-      if (connection === 'close') {
+      if (connection === "close") {
         const reason = lastDisconnect?.error?.output?.statusCode;
-        console.log(chalk.red('❌ Déconnecté :'), reason);
+        console.log(chalk.red("❌ Déconnecté :"), reason);
 
         if (reason !== DisconnectReason.loggedOut) {
           setTimeout(startBot, 5000);
         } else {
-          console.log(chalk.red('🚫 Session expirée – supprime session/creds.json'));
+          console.log(chalk.red("🚫 Session expirée – supprime session/creds.json"));
         }
       }
     });
 
-// ================== MESSAGES UPDATES ==================
-sock.ev.on('messages.upsert', async ({ messages }) => {
-  if (!messages?.length) return;
+    // ================== MESSAGES ==================
+    sock.ev.on("messages.upsert", async ({ messages }) => {
+      if (!messages?.length) return;
 
-  // ---------------------- Pré-filtrage ----------------------
-  const now = Date.now();
-  const valid = messages.filter(m => {
-    const jid = m.key.remoteJid;
-    const msgTime = m.messageTimestamp || m.message?.timestamp || Math.floor(now / 1000);
+      const now = Date.now();
+      const valid = messages.filter(m => {
+        const jid = m.key.remoteJid;
+        const msgTime =
+          m.messageTimestamp ||
+          m.message?.timestamp ||
+          Math.floor(now / 1000);
 
-    return (
-      m?.message &&
-      jid !== 'status@broadcast' &&
-      jid !== '0@s.whatsapp.net' &&
-      (global.startupGrace?.enabled || msgTime >= global.botStartTime / 1000)
-    );
-  });
+        return (
+          m?.message &&
+          jid !== "status@broadcast" &&
+          jid !== "0@s.whatsapp.net" &&
+          msgTime >= global.botStartTime / 1000
+        );
+      });
 
-  // ---------------------- Throttle par groupe ----------------------
-  global.lastUpsert ??= {};
-  
-  for (const msg of valid) {
-    try {
-      const jid = msg.key.remoteJid;
-
-      // ---------------------- Throttle simple pour groupes actifs ----------------------
-      const delay = 50; // ms
-      if (global.lastUpsert[jid] && now - global.lastUpsert[jid] < delay) continue;
-      global.lastUpsert[jid] = now;
-
-      // ---------------------- Cache smsg ----------------------
+      global.lastUpsert ??= {};
       global._msgCache ??= new Map();
-      let mProcessed = global._msgCache.get(msg.key.id);
-      if (!mProcessed) {
-        mProcessed = smsg(sock, msg);
-        global._msgCache.set(msg.key.id, mProcessed);
+
+      for (const msg of valid) {
+        try {
+          const jid = msg.key.remoteJid;
+          const delay = 50;
+
+          if (global.lastUpsert[jid] && now - global.lastUpsert[jid] < delay)
+            continue;
+          global.lastUpsert[jid] = now;
+
+          let mProcessed = global._msgCache.get(msg.key.id);
+          if (!mProcessed) {
+            mProcessed = smsg(sock, msg);
+            global._msgCache.set(msg.key.id, mProcessed);
+          }
+
+          if (!mProcessed.body?.trim()) continue;
+
+          if (
+            mProcessed.isGroup &&
+            global.disabledGroups?.has(mProcessed.chat)
+          )
+            continue;
+
+          await handleCommand(sock, mProcessed);
+
+          if (global._msgCache.size > 10000) global._msgCache.clear();
+        } catch (err) {
+          if (err.message?.includes("Bad MAC")) {
+            console.warn("⚠️ Bad MAC ignoré");
+            continue;
+          }
+          console.error("❌ messages.upsert error:", err);
+        }
       }
-
-      // ---------------------- Ignore messages sans texte ----------------------
-      if (!mProcessed.body?.trim()) continue;
-
-      // ---------------------- Ignore groupes désactivés ----------------------
-      if (mProcessed.isGroup && global.disabledGroups.has(mProcessed.chat)) continue;
-
-      // ---------------------- Exécution principale ----------------------
-      await handleCommand(sock, mProcessed);
-
-      // ---------------------- Nettoyage cache périodique ----------------------
-      if (global._msgCache.size > 10000) global._msgCache.clear();
-
-    } catch (err) {
-      // ---------------------- Gestion Bad MAC ----------------------
-      if (err.message?.includes('Bad MAC')) {
-        console.warn(`⚠️ Bad MAC dans ${msg.key.remoteJid}, skipping...`);
-        continue;
-      }
-
-      // ---------------------- Autres erreurs ----------------------
-      console.error('❌ messages.upsert error:', err);
-    }
-  }
-});
+    });
 
     // ================== GROUP EVENTS ==================
-    sock.ev.on('group-participants.update', update =>
+    sock.ev.on("group-participants.update", update =>
       handleParticipantUpdate(sock, update).catch(() => {})
     );
 
     // ================== CREDS ==================
-    sock.ev.on('creds.update', saveCreds);
+    sock.ev.on("creds.update", saveCreds);
 
     return sock;
-
   } catch (err) {
-    console.error('❌ ERREUR FATALE:', err);
+    console.error("❌ ERREUR FATALE:", err);
     process.exit(1);
   }
 }
 
-// ================== RUN ==================
-global.botStartTime = Date.now(); 
+// ================== RUN BOT ==================
+global.botStartTime = Date.now();
 startBot();
 
+// ================== RENDER HTTP SERVER (OBLIGATOIRE) ==================
+const app = express();
+
+app.get("/", (req, res) => {
+  res.status(200).send("✅ KAYA-MD est actif sur Render");
+});
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("🌍 Serveur HTTP Render ouvert sur le port", PORT);
+});
+
 // ================== GLOBAL ERRORS ==================
-process.on('unhandledRejection', err =>
-  console.error('UnhandledRejection:', err)
+process.on("unhandledRejection", err =>
+  console.error("UnhandledRejection:", err)
 );
-process.on('uncaughtException', err =>
-  console.error('UncaughtException:', err)
+process.on("uncaughtException", err =>
+  console.error("UncaughtException:", err)
 );
